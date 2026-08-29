@@ -1,0 +1,37 @@
+{
+  "name": "multiaccountidle",
+  "version": "1.1.0",
+  "description": "MultiAccountIdle — contas de jogos idle de navegador lado a lado, com modo economia",
+  "main": "main.js",
+  "author": "Chang",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win dir",
+    "installer": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "br.com.chang.multiaccountidle",
+    "productName": "MultiAccountIdle",
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": false,
+      "artifactName": "MultiAccountIdle-Setup-${version}.${ext}"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**",
+      "build/icon.ico"
+    ],
+    "compression": "store"
+  }
+}

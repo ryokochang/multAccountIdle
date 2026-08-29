@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+  <title>MultiAccountIdle</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header id="topbar">
+    <div id="brand">
+      <span class="flame">🕹️</span>
+      <span><b>MultiAccountIdle</b><small>jogos idle · multi contas</small></span>
+    </div>
+
+    <span id="chips"></span>
+
+    <div class="group">
+      <label>Jogo</label>
+      <select id="gameSelect" title="Jogo aberto em todas as contas"></select>
+      <button class="tbtn" id="btnAddGame" title="Adicionar jogo">＋</button>
+      <button class="tbtn" id="btnDelGame" title="Remover jogo selecionado">−</button>
+    </div>
+
+    <div class="group">
+      <label>Telas</label>
+      <span id="layouts"></span>
+    </div>
+
+    <div class="group">
+      <label>Eco</label>
+      <input id="ecoFps" type="range" min="5" max="30" step="1">
+      <span id="ecoFpsLabel">15 FPS</span>
+    </div>
+
+    <span class="spacer"></span>
+
+    <div class="group">
+      <button class="tbtn" id="btnHome" title="Início — voltar ao jogo (conta principal)">🏠</button>
+      <button class="tbtn" id="btnReload" title="Recarregar conta principal">⟳</button>
+      <button class="tbtn" id="btnZoomOut" title="Diminuir zoom">A−</button>
+      <button class="tbtn" id="btnZoomIn" title="Aumentar zoom">A+</button>
+      <button class="tbtn" id="btnFull" title="Tela cheia (F11)">⛶</button>
+      <button class="tbtn" id="btnCfg" title="Configurações">⚙</button>
+    </div>
+  </header>
+
+  <main id="grid"></main>
+
+  <div id="cfgPanel" class="hidden">
+    <h3>⚙ Configurações</h3>
+
+    <div class="cfg-row">
+      <label>Número de contas</label>
+      <select id="cfgSlots">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+      </select>
+      <span class="cfg-hint">(logins ficam salvos por conta)</span>
+    </div>
+
+    <div class="cfg-row">
+      <label>ECO automático</label>
+      <select id="cfgAutoEco">
+        <option value="off">Desligado</option>
+        <option value="others">Contas não principais</option>
+        <option value="idle">Após inatividade</option>
+      </select>
+      <input id="cfgAutoEcoMin" type="number" min="1" max="120" step="1"> min
+    </div>
+
+    <div class="cfg-row">
+      <label class="cfg-check"><input type="checkbox" id="cfgAutoReload"> Reconexão automática (recarrega a conta se cair)</label>
+    </div>
+
+    <div class="cfg-row">
+      <label class="cfg-check"><input type="checkbox" id="cfgNotifSta"> Avisar stamina abaixo de</label>
+      <input id="cfgNotifStaMin" type="number" min="5" max="900" step="5"> min
+    </div>
+    <div class="cfg-row">
+      <label class="cfg-check"><input type="checkbox" id="cfgNotifLv"> Avisar quando subir de nível</label>
+    </div>
+    <div class="cfg-row">
+      <label class="cfg-check"><input type="checkbox" id="cfgNotifDisc"> Avisar quando uma conta desconectar</label>
+    </div>
+
+    <hr>
+
+    <div class="cfg-row">
+      <label>Perfis</label>
+      <select id="cfgProfiles"></select>
+    </div>
+    <div class="cfg-actions">
+      <button class="tbtn" id="cfgProfSave">Salvar atual…</button>
+      <button class="tbtn" id="cfgProfApply">Aplicar</button>
+      <button class="tbtn" id="cfgProfDel">Excluir</button>
+    </div>
+
+    <div class="cfg-actions">
+      <button class="tbtn primary" id="cfgClose">Fechar</button>
+    </div>
+  </div>
+
+  <div id="modal" class="hidden">
+    <div class="modal-panel">
+      <h3>Adicionar jogo</h3>
+      <label>Nome
+        <input id="mName" type="text" placeholder="Ex.: Huntera">
+      </label>
+      <label>URL
+        <input id="mUrl" type="text" placeholder="https://exemplo.com/jogo">
+      </label>
+      <div class="modal-actions">
+        <button class="tbtn" id="mCancel">Cancelar</button>
+        <button class="tbtn primary" id="mOk">Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalText" class="hidden">
+    <div class="modal-panel">
+      <h3 id="mtTitle">Nome</h3>
+      <label id="mtLabel">Nome
+        <input id="mtInput" type="text">
+      </label>
+      <div class="modal-actions">
+        <button class="tbtn" id="mtCancel">Cancelar</button>
+        <button class="tbtn primary" id="mtOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

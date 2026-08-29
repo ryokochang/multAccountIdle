@@ -1,0 +1,414 @@
+:root {
+  --bg: #0c0f08;
+  --panel: #141a0d;
+  --panel2: #1b2410;
+  --line: #2c3618;
+  --gold: #d8b45a;
+  --gold-dim: #8a7434;
+  --green: #86c93f;
+  --green-dim: #3f6b1e;
+  --text: #e8e2c9;
+  --muted: #9aa07e;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+button { font-family: inherit; }
+
+/* ============ barra superior ============ */
+/* Barra sempre em 1 linha: compacta por estágios conforme a largura da
+   janela (media queries no fim do arquivo) e, em último caso, rola. */
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: linear-gradient(#151b0c, #10150a);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+#topbar > * { flex-shrink: 0; }
+#topbar .spacer { flex-shrink: 1; min-width: 6px; }
+#topbar::-webkit-scrollbar { height: 5px; }
+#topbar::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+#brand { display: flex; align-items: center; gap: 8px; margin-right: 6px; }
+#brand .flame { font-size: 19px; }
+#brand b {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  color: var(--gold);
+  letter-spacing: .5px;
+  display: block;
+}
+#brand small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: var(--text);
+}
+.chip:hover { border-color: var(--gold-dim); }
+.chip.principal { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.chip .cnum {
+  font-family: Georgia, serif;
+  color: var(--gold);
+  background: #241d09;
+  border: 1px solid var(--gold-dim);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 11px;
+}
+.chip .cbody { text-align: left; line-height: 1.15; }
+.chip .cbody b { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.chip .cstatus {
+  color: var(--muted);
+  font-size: 10px;
+  display: block;
+  max-width: 72px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip .ceco {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  border-radius: 10px;
+  padding: 2px 6px;
+  background: #22280f;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.chip .ceco.on { background: #1d3311; color: var(--green); border-color: var(--green-dim); }
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 7px;
+}
+.group label {
+  font-size: 9.5px;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.tbtn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.tbtn:hover { border-color: var(--gold-dim); color: var(--gold); }
+.tbtn.active { background: #2a2208; color: var(--gold); border-color: var(--gold); }
+#layouts { display: flex; gap: 3px; }
+.tbtn.lay { width: 32px; min-width: 32px; height: 26px; padding: 3px; }
+.lay .mini { position: relative; display: block; width: 100%; height: 100%; }
+.lay .mini i {
+  position: absolute;
+  background: #3c4a1e;
+  border: 1px solid #5a6c33;
+  border-radius: 1px;
+  box-sizing: border-box;
+}
+.lay:hover .mini i { border-color: var(--gold-dim); }
+.lay.active .mini i { background: #6b5a1c; border-color: var(--gold); }
+#gameSelect {
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  height: 26px;
+  padding: 0 6px;
+  max-width: 130px;
+}
+.tbtn.primary { background: #2a2208; color: var(--gold); border-color: var(--gold-dim); }
+#ecoFps { accent-color: var(--green); width: 88px; }
+#ecoFpsLabel { color: var(--green); font-size: 10px; min-width: 40px; text-align: right; }
+.spacer { flex: 1; }
+
+/* ============ grade de telas ============ */
+/* os painéis visíveis são posicionados por % via JS (LAYOUTS em app.js) */
+#grid {
+  position: relative;
+  flex: 1;
+  background: #000;
+}
+.pane { display: none; background: #000; border: 1px solid var(--line); }
+.pane.shown { display: flex; flex-direction: column; position: absolute; }
+.pane.principal.shown { border-color: var(--gold-dim); }
+
+.phead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: linear-gradient(#161d0c, #111608);
+  border-bottom: 1px solid var(--line);
+}
+.phead .pnum { font-family: Georgia, serif; font-size: 10.5px; color: var(--gold); }
+.phead .pname { font-size: 12px; font-weight: 600; }
+.phead .pstatus { font-size: 10px; color: var(--muted); }
+.pb {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  height: 22px;
+  min-width: 22px;
+}
+.pb:hover { color: var(--gold); border-color: var(--line); background: var(--panel2); }
+
+.pbody { position: relative; flex: 1; overflow: hidden; }
+.pbody webview { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* ============ modo economia ============ */
+/* o jogo continua rodando num render minúsculo atrás do painel */
+.pane.eco .pbody webview {
+  inset: auto;
+  left: 8px;
+  top: 8px;
+  width: 256px;
+  height: 144px;
+}
+.eco-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: radial-gradient(ellipse at center, #16200d 0%, #0d1207 70%);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+.pane.eco .eco-overlay { display: flex; }
+.eco-emblem { font-size: 44px; filter: drop-shadow(0 0 12px #4d7a1e); }
+.eco-overlay h2 {
+  font-family: Georgia, serif;
+  font-size: 24px;
+  color: #f0e6c8;
+  font-weight: 600;
+}
+.eco-sub { font-size: 10.5px; letter-spacing: 2px; color: var(--muted); }
+.eco-stats { display: flex; gap: 10px; margin-top: 6px; }
+.stat {
+  background: #18220e;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 18px;
+  min-width: 150px;
+}
+.stat label { display: block; font-size: 9px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
+.stat b { font-family: Georgia, serif; font-size: 17px; color: #f2ead2; }
+.stat.wide { min-width: 330px; margin-top: 4px; }
+.xpbar {
+  height: 6px;
+  background: #0c1106;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 5px 0 3px;
+}
+.xpbar i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #c78b2d, #ffcf5e);
+  transition: width .4s;
+}
+.eco-hint { color: var(--muted); font-size: 11px; margin-top: 10px; }
+.eco-return { width: 300px; accent-color: var(--green); cursor: grab; }
+
+/* ============ dock (contas fora da grade) ============ */
+.pane.docked {
+  display: block;
+  position: absolute;
+  bottom: 12px;
+  width: 208px;
+  height: 130px;
+  z-index: 60;
+  border: 1px solid var(--gold-dim);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .6);
+}
+.pane.docked .phead { display: none; }
+.pane.docked .pbody { position: absolute; inset: 0; }
+.dock-label { display: none; }
+.pane.docked .dock-label {
+  display: flex;
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  align-items: flex-end;
+  cursor: pointer;
+  background: linear-gradient(transparent 55%, rgba(8, 10, 4, .9));
+  color: var(--gold);
+  font-size: 11px;
+  padding: 6px 8px;
+}
+.pane.docked .dock-label:hover {
+  background: linear-gradient(rgba(216, 180, 90, .08), rgba(8, 10, 4, .92));
+}
+.pane.docked .eco-overlay h2,
+.pane.docked .eco-sub,
+.pane.docked .eco-stats,
+.pane.docked .stat.wide,
+.pane.docked .eco-hint,
+.pane.docked .eco-return { display: none; }
+.pane.docked .eco-emblem { font-size: 28px; }
+.pane.docked.eco .pbody webview { left: 4px; top: 4px; width: 96px; height: 54px; }
+
+/* contas ocultas no arranjo "Tela única": praticamente invisíveis,
+   mas ainda renderizando, para o jogo não pausar nem desconectar */
+.pane.ghost {
+  display: block;
+  position: absolute;
+  width: 120px;
+  height: 68px;
+  opacity: .02;
+  pointer-events: none;
+  border: none;
+  overflow: hidden;
+  z-index: 1;
+}
+.pane.ghost .phead,
+.pane.ghost .dock-label,
+.pane.ghost .eco-overlay { display: none; }
+.pane.ghost .pbody { position: absolute; inset: 0; }
+.pane.ghost .pbody webview { inset: 0; left: 0; top: 0; width: 100%; height: 100%; }
+
+/* ============ chips dinâmicos ============ */
+#chips { display: flex; gap: 6px; }
+
+/* ============ painel de configurações ============ */
+#cfgPanel {
+  position: fixed;
+  top: 50px;
+  right: 10px;
+  z-index: 95;
+  width: 330px;
+  background: var(--panel);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .7);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+#cfgPanel.hidden { display: none; }
+#cfgPanel h3 { font-family: Georgia, serif; color: var(--gold); font-size: 14px; font-weight: 600; }
+#cfgPanel hr { border: none; border-top: 1px solid var(--line); margin: 2px 0; }
+.cfg-row { display: flex; align-items: center; gap: 6px; font-size: 11.5px; flex-wrap: wrap; }
+.cfg-row > label:first-child:not(.cfg-check) { color: var(--muted); min-width: 108px; }
+.cfg-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.cfg-hint { color: var(--muted); font-size: 9.5px; }
+.cfg-row select,
+.cfg-row input[type=number] {
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  height: 24px;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 11.5px;
+}
+.cfg-row input[type=number] { width: 56px; }
+.cfg-row select { max-width: 160px; }
+.cfg-row input[type=checkbox] { accent-color: var(--green); }
+.cfg-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.cfg-actions .tbtn { font-size: 11px; padding: 0 8px; }
+
+/* ============ modal "adicionar jogo" ============ */
+#modal,
+#modalText {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(4, 6, 2, .7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#modal.hidden,
+#modalText.hidden { display: none; }
+.modal-panel {
+  background: var(--panel);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 18px 20px;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .7);
+}
+.modal-panel h3 { font-family: Georgia, serif; color: var(--gold); font-weight: 600; }
+.modal-panel label { font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.modal-panel input {
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  height: 28px;
+  padding: 0 8px;
+  font: inherit;
+}
+.modal-panel input:focus { outline: none; border-color: var(--gold-dim); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+/* ============ barra em 1 linha: estágios de compactação ============ */
+/* janelas médias (inclui 1920 com escala 125% e a largura padrão 1680) */
+@media (max-width: 1750px) {
+  #topbar { padding: 8px; }
+  #brand small { display: none; }
+  .chip .cstatus { display: none; }
+  .group > label { display: none; }
+  #gameSelect { max-width: 92px; }
+  .tbtn.lay { width: 26px; min-width: 26px; }
+  .tbtn { padding: 0 5px; }
+  #ecoFps { width: 74px; }
+}
+/* janelas estreitas */
+@media (max-width: 1280px) {
+  #brand b { display: none; }
+  .chip .cbody { display: none; }
+  #gameSelect { max-width: 88px; }
+}
