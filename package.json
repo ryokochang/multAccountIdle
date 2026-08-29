@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "description": "MultiAccountIdle — contas de jogos idle de navegador lado a lado, com modo economia",
   "main": "main.js",
-  "author": "Chang",
+  "author": "Alex Chang <alexscchang1@gmail.com>",
   "private": true,
   "scripts": {
     "start": "electron .",

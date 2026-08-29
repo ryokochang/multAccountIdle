@@ -87,6 +87,11 @@ build/icon.ico      ícone do app
 > (os links quebrados são arquivos só de macOS e podem ser ignorados) — ou
 > ative o Modo Desenvolvedor do Windows.
 
+## Autor
+
+Desenvolvido por **Alex Chang** — [alexscchang1@gmail.com](mailto:alexscchang1@gmail.com) —
+com a ajuda do [Claude Code](https://claude.com/claude-code).
+
 ## Licença
 
-[MIT](LICENSE) — feito com a ajuda do [Claude Code](https://claude.com/claude-code).
+[MIT](LICENSE)
