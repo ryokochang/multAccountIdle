@@ -90,7 +90,8 @@ build/icon.ico      app icon
 
 ## Author
 
-Developed by **Alex Chang** — [alexscchang1@gmail.com](mailto:alexscchang1@gmail.com) —
+Developed by **Alex Chang** ([@ryokochang](https://github.com/ryokochang)) —
+[alexscchang1@gmail.com](mailto:alexscchang1@gmail.com) —
 with the help of [Claude Code](https://claude.com/claude-code).
 
 ## License
