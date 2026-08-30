@@ -144,6 +144,9 @@ button { font-family: inherit; }
 }
 .lay:hover .mini i { border-color: var(--gold-dim); }
 .lay.active .mini i { background: #6b5a1c; border-color: var(--gold); }
+.tbtn.lay:disabled { opacity: .3; cursor: default; }
+.tbtn.lay:disabled:hover { border-color: var(--line); }
+.tbtn.lay:disabled:hover .mini i { border-color: #5a6c33; }
 #gameSelect {
   background: var(--panel2);
   color: var(--text);

@@ -26,6 +26,14 @@ const LAYOUTS = {
   palco:    { label: 'Principal + 3 embaixo', rects: [[0, 0, 100, 62], [0, 62, T3, 38], [T3, 62, T3, 38], [2 * T3, 62, T3, 38]] },
   grade6:   { label: 'Grade 3×2 (6 contas)',  rects: [[0, 0, T3, 50], [T3, 0, T3, 50], [2 * T3, 0, T3, 50], [0, 50, T3, 50], [T3, 50, T3, 50], [2 * T3, 50, T3, 50]] }
 };
+/* Arranjo usado quando o atual precisa de mais contas do que existem */
+const LAYOUT_FALLBACK = { 1: 'solo', 2: 'duo', 3: 'trio', 4: 'grade', 5: 'grade', 6: 'grade6' };
+
+function clampNum(v, lo, hi, def) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return def;
+  return Math.max(lo, Math.min(hi, n));
+}
 
 /* ============================================================
    Script injetado dentro de cada conta (roda na página do jogo).
@@ -39,13 +47,32 @@ function mfPageBootstrap() {
   window.__mfReady = true;
 
   var nativeRAF = window.requestAnimationFrame.bind(window);
+  var nativeCAF = window.cancelAnimationFrame.bind(window);
   var cap = 0, last = 0;
+  var pending = Object.create(null); // id devolvido -> id nativo atual
   window.__mfSetFps = function (f) { cap = Number(f) || 0; };
   window.requestAnimationFrame = function (cb) {
-    return nativeRAF(function frame(ts) {
-      if (!cap || ts - last >= (1000 / cap) - 1) { last = ts; cb(ts); }
-      else nativeRAF(frame);
-    });
+    var handle;
+    function schedule() {
+      return nativeRAF(function (ts) {
+        // ts === last: callbacks do mesmo frame liberado também rodam
+        if (!cap || ts === last || ts - last >= (1000 / cap) - 1) {
+          last = ts;
+          delete pending[handle];
+          cb(ts);
+        } else {
+          pending[handle] = schedule();
+        }
+      });
+    }
+    handle = schedule();
+    pending[handle] = handle;
+    return handle;
+  };
+  window.cancelAnimationFrame = function (id) {
+    var current = pending[id];
+    delete pending[id];
+    nativeCAF(current !== undefined ? current : id);
   };
 
   function near(txt, anchor, span, re) {
@@ -110,16 +137,29 @@ function loadState() {
     for (let i = 1; i <= MAX_SLOTS; i++) {
       s.slots[i] = Object.assign(defaultSlot(i), (raw.slots || {})[i] || {});
     }
-    if (!Array.isArray(s.games) || !s.games.length) s.games = structuredClone(DEFAULT_GAMES);
-    s.games = s.games.filter(g => g && typeof g.name === 'string' && typeof g.url === 'string');
+    // jogos: só URLs válidas, sempre normalizadas (new URL(...).href)
+    if (!Array.isArray(s.games)) s.games = [];
+    s.games = s.games
+      .filter(g => g && typeof g.name === 'string' && typeof g.url === 'string')
+      .map(g => { try { return { name: g.name, url: new URL(g.url).href }; } catch (e) { return null; } })
+      .filter(Boolean);
     if (!s.games.some(g => g.url === DEFAULT_GAMES[0].url)) s.games.unshift(structuredClone(DEFAULT_GAMES)[0]);
-    if (typeof s.gameUrl !== 'string' || !s.gameUrl) s.gameUrl = DEFAULT_GAMES[0].url;
+    try { s.gameUrl = new URL(s.gameUrl).href; } catch (e) { s.gameUrl = DEFAULT_GAMES[0].url; }
     // Migração de versões antigas, onde o layout era um número (1–4)
     if (typeof s.layout === 'number') s.layout = { 1: 'solo', 2: 'duo', 3: 'trio', 4: 'grade' }[s.layout] || 'grade';
     if (!LAYOUTS[s.layout]) s.layout = 'grade';
-    s.slotCount = Math.max(1, Math.min(MAX_SLOTS, Number(s.slotCount) || 4));
+    s.slotCount = Math.round(clampNum(s.slotCount, 1, MAX_SLOTS, 4));
+    if ((LAYOUTS[s.layout] || LAYOUTS.grade).rects.length > s.slotCount) s.layout = LAYOUT_FALLBACK[s.slotCount];
     if (s.principal > s.slotCount) s.principal = 1;
     if (!['off', 'others', 'idle'].includes(s.autoEco)) s.autoEco = 'off';
+    s.ecoFps = clampNum(s.ecoFps, 5, 30, 15);
+    s.zoom = clampNum(s.zoom, 0.3, 2, 1);
+    s.autoEcoMinutes = clampNum(s.autoEcoMinutes, 1, 120, 5);
+    s.notifStaminaMin = clampNum(s.notifStaminaMin, 5, 900, 60);
+    s.autoReload = !!s.autoReload;
+    s.notifStamina = !!s.notifStamina;
+    s.notifLevel = !!s.notifLevel;
+    s.notifDisc = !!s.notifDisc;
     if (!Array.isArray(s.profiles)) s.profiles = [];
     return s;
   } catch (e) {
@@ -163,7 +203,7 @@ function createPane(slot) {
       <button class="pb b-clear" title="Limpar sessão (deslogar esta conta)">🧹</button>
     </div>
     <div class="pbody">
-      <webview partition="persist:conta${slot}" src="${state.gameUrl}" allowpopups
+      <webview partition="persist:conta${slot}" allowpopups
         useragent="${UA}"
         webpreferences="backgroundThrottling=no,spellcheck=no"></webview>
       <div class="eco-overlay">
@@ -191,10 +231,12 @@ function createPane(slot) {
     wv: el.querySelector('webview'),
     ready: false,
     status: 'Carregando…',
-    lastPrincipalAt: Date.now(),
+    lastActivityAt: Date.now(),
     failCount: 0,
+    loadFailed: false,
     lastLv: null,
     staminaNotified: false,
+    discStreak: 0,
     lastDiscNotify: 0,
     lastDiscReload: 0,
     statusEl: el.querySelector('.pstatus'),
@@ -211,6 +253,10 @@ function createPane(slot) {
     sXpi: el.querySelector('.s-xpi')
   };
 
+  // a URL nunca é interpolada no innerHTML: valores digitados pelo usuário
+  // entram na webview só via setAttribute
+  p.wv.setAttribute('src', state.gameUrl);
+
   if (state.slots[slot].eco) el.classList.add('eco');
 
   /* ---- eventos da webview ---- */
@@ -219,27 +265,34 @@ function createPane(slot) {
     p.wv.executeJavaScript(INJECT_SRC).catch(() => {});
     try { p.wv.setZoomFactor(state.zoom); } catch (e) {}
     applyEcoToGuest(slot);
-    setStatus(slot, 'Pronta');
+    setStatus(slot, p.loadFailed ? 'Erro ao carregar' : 'Pronta');
   });
-  p.wv.addEventListener('did-start-loading', () => setStatus(slot, 'Carregando…'));
-  p.wv.addEventListener('did-finish-load', () => { p.failCount = 0; });
+  p.wv.addEventListener('did-start-loading', () => {
+    p.loadFailed = false;
+    setStatus(slot, 'Carregando…');
+  });
+  p.wv.addEventListener('did-finish-load', () => {
+    if (!p.loadFailed) p.failCount = 0;
+  });
   p.wv.addEventListener('did-fail-load', (e) => {
     if (e.errorCode === -3 || !e.isMainFrame) return;
+    p.loadFailed = true;
     setStatus(slot, 'Erro ao carregar');
     notifyDisc(slot, 'erro ao carregar a página');
     if (state.autoReload) {
       const delay = Math.min(60, 5 * Math.pow(2, p.failCount)) * 1000;
       p.failCount++;
-      setTimeout(() => { if (p.ready && state.autoReload) { try { p.wv.reload(); } catch (er) {} } }, delay);
+      setTimeout(() => {
+        if (state.autoReload && p.loadFailed) { try { p.wv.reload(); } catch (er) {} }
+      }, delay);
     }
   });
-  const onGone = () => {
+  p.wv.addEventListener('render-process-gone', () => {
     setStatus(slot, 'Travou');
     notifyDisc(slot, 'a conta travou');
     if (state.autoReload) setTimeout(() => { try { p.wv.reload(); } catch (er) {} }, 3000);
-  };
-  p.wv.addEventListener('render-process-gone', onGone);
-  p.wv.addEventListener('crashed', onGone);
+  });
+  p.wv.addEventListener('focus', () => { p.lastActivityAt = Date.now(); });
 
   /* ---- botões do cabeçalho ---- */
   el.querySelector('.b-star').addEventListener('click', () => setPrincipal(slot));
@@ -251,10 +304,12 @@ function createPane(slot) {
     p.muteBtn.textContent = s.muted ? '🔇' : '🔊';
     applyEcoToGuest(slot);
   });
-  el.querySelector('.b-reload').addEventListener('click', () => { if (p.ready) p.wv.reload(); });
+  el.querySelector('.b-reload').addEventListener('click', () => {
+    try { p.wv.reload(); } catch (e) {}
+  });
   el.querySelector('.b-clear').addEventListener('click', async () => {
     const ok = await window.forja.clearPartition(`persist:conta${slot}`);
-    if (ok && p.ready) p.wv.loadURL(state.gameUrl);
+    if (ok) navigateTo(slot, state.gameUrl);
   });
 
   /* ---- slider "arraste para voltar" ---- */
@@ -284,6 +339,30 @@ function withGuest(slot, fn) {
   if (p && p.ready) { try { fn(p.wv); } catch (e) {} }
 }
 
+/* Reseta o estado de monitoramento (evita notificações falsas
+   ao trocar de jogo ou de conta) */
+function resetMonitor(slot) {
+  const p = panes[slot];
+  if (!p) return;
+  p.lastLv = null;
+  p.staminaNotified = false;
+  p.discStreak = 0;
+  p.failCount = 0;
+  p.loadFailed = false;
+}
+
+/* Navega a conta para uma URL, mesmo que a webview ainda não esteja pronta */
+function navigateTo(slot, url) {
+  const p = panes[slot];
+  if (!p) return;
+  resetMonitor(slot);
+  if (p.ready) {
+    try { p.wv.loadURL(url).catch(() => {}); } catch (e) {}
+  } else {
+    p.wv.setAttribute('src', url);
+  }
+}
+
 /* ============================================================
    Chips da barra superior (dinâmicos, renomeáveis)
    ============================================================ */
@@ -308,10 +387,12 @@ function buildChips() {
         refreshNames(slot);
       }
     });
-    chip.querySelector('.ceco').addEventListener('click', (e) => {
+    const pill = chip.querySelector('.ceco');
+    pill.addEventListener('click', (e) => {
       e.stopPropagation();
       setEco(slot, !state.slots[slot].eco);
     });
+    pill.addEventListener('dblclick', (e) => e.stopPropagation());
     chipsBox.appendChild(chip);
     chipEls[slot] = chip;
     refreshNames(slot);
@@ -367,14 +448,18 @@ function rebuildSlots() {
     if (!panes[slot]) createPane(slot);
   }
   SLOTS = wanted;
-  if (!SLOTS.includes(state.principal)) state.principal = SLOTS[0];
+  if (!SLOTS.includes(state.principal)) {
+    state.principal = SLOTS[0];
+    saveState();
+  }
   buildChips();
 }
 
 function setSlotCount(n) {
-  n = Math.max(1, Math.min(MAX_SLOTS, Number(n) || 4));
+  n = Math.round(clampNum(n, 1, MAX_SLOTS, 4));
   if (n === state.slotCount) return;
   state.slotCount = n;
+  if ((LAYOUTS[state.layout] || LAYOUTS.grade).rects.length > n) state.layout = LAYOUT_FALLBACK[n];
   saveState();
   rebuildSlots();
   applyLayout();
@@ -406,12 +491,7 @@ function fillGameSelect() {
 function setGame(url) {
   state.gameUrl = url;
   saveState();
-  SLOTS.forEach(slot => {
-    const p = panes[slot];
-    if (!p) return;
-    if (p.ready) { try { p.wv.loadURL(url); } catch (e) {} }
-    else p.wv.setAttribute('src', url);
-  });
+  SLOTS.forEach(slot => navigateTo(slot, url));
 }
 
 function wireGameControls() {
@@ -437,6 +517,7 @@ function wireGameControls() {
     if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
     let parsed;
     try { parsed = new URL(url); } catch (e) { alert('URL inválida.'); return; }
+    url = parsed.href; // forma normalizada: aspas/espaços viram percent-encoding
     if (!name) name = parsed.hostname.replace(/^www\./, '');
     if (state.games.some(g => g.url === url)) { alert('Esse jogo já está na lista.'); return; }
     state.games.push({ name, url });
@@ -516,11 +597,29 @@ function setEco(slot, on) {
   refreshStatusUI(slot);
 }
 
+/* Liga o ECO em todas as contas que não são a principal (modo "others") */
+function ecoOthers() {
+  SLOTS.forEach(s => { if (s !== state.principal && !state.slots[s].eco) setEco(s, true); });
+}
+
 function applyEcoToGuest(slot) {
   const s = state.slots[slot];
   withGuest(slot, (wv) => {
     wv.executeJavaScript(`window.__mfSetFps && window.__mfSetFps(${s.eco ? state.ecoFps : 0})`).catch(() => {});
     wv.setAudioMuted(s.eco ? true : s.muted);
+  });
+}
+
+/* FPS do modo ECO: um caminho único que atualiza estado, slider,
+   rótulos dos painéis e o limitador dentro de cada conta em ECO */
+function setEcoFps(v) {
+  state.ecoFps = Math.round(clampNum(v, 5, 30, 15));
+  saveState();
+  document.getElementById('ecoFps').value = state.ecoFps;
+  document.getElementById('ecoFpsLabel').textContent = state.ecoFps + ' FPS';
+  SLOTS.forEach(s => {
+    if (panes[s]) panes[s].ecoFpsEl.textContent = state.ecoFps;
+    if (state.slots[s].eco) applyEcoToGuest(s);
   });
 }
 
@@ -541,7 +640,7 @@ function renderEcoStats(slot, d) {
   p.sLv.textContent = (d.lv !== null && d.lv !== undefined) ? d.lv : '—';
   p.sXp.textContent = d.xp || '—';
   const pct = d.xp ? parseFloat(String(d.xp).replace(',', '.')) : 0;
-  p.sXpi.style.width = Math.max(0, Math.min(100, pct || 0)) + '%';
+  p.sXpi.style.width = clampNum(pct, 0, 100, 0) + '%';
 }
 
 /* ============================================================
@@ -587,28 +686,42 @@ function handleScrape(slot, d) {
     p.lastLv = d.lv;
   }
 
-  // desconectado (texto na página)
-  if (d.disc) {
-    setStatus(slot, 'Desconectada');
-    notifyDisc(slot, 'parece desconectada');
-    if (state.autoReload && Date.now() - p.lastDiscReload > 120000) {
-      p.lastDiscReload = Date.now();
-      try { p.wv.reload(); } catch (e) {}
+  // desconexão: o texto sozinho não basta (pode ser chat) — só conta quando a
+  // UI do jogo sumiu junto (sem Capacidade/Stamina) em 2 leituras seguidas
+  const disconnected = d.disc && !d.cap && !d.sta;
+  if (disconnected) {
+    p.discStreak++;
+    if (p.discStreak >= 2) {
+      setStatus(slot, 'Desconectada');
+      notifyDisc(slot, 'parece desconectada');
+      if (state.autoReload && Date.now() - p.lastDiscReload > 120000) {
+        p.lastDiscReload = Date.now();
+        try { p.wv.reload(); } catch (e) {}
+      }
     }
+  } else {
+    p.discStreak = 0;
   }
 }
 
 function tick() {
   const now = Date.now();
+  const monitorOn = state.notifStamina || state.notifLevel || state.notifDisc || state.autoReload;
   for (const slot of SLOTS) {
     const p = panes[slot];
     if (!p || !p.ready) continue;
 
+    // enquanto a webview estiver focada, a conta está em uso
+    if (document.activeElement === p.wv) p.lastActivityAt = now;
+
     // eco automático por inatividade
     if (state.autoEco === 'idle' && slot !== state.principal && !state.slots[slot].eco &&
-        now - p.lastPrincipalAt > state.autoEcoMinutes * 60000) {
+        now - p.lastActivityAt > state.autoEcoMinutes * 60000) {
       setEco(slot, true);
     }
+
+    // sem consumidor (nem ECO nem notificações/reconexão), não paga o scrape
+    if (!state.slots[slot].eco && !monitorOn) continue;
 
     p.wv.executeJavaScript('window.__mfScrape ? window.__mfScrape() : null')
       .then((d) => handleScrape(slot, d))
@@ -623,13 +736,11 @@ function setPrincipal(slot) {
   if (!SLOTS.includes(slot)) return;
   const prev = state.principal;
   state.principal = slot;
-  if (panes[slot]) panes[slot].lastPrincipalAt = Date.now();
-  if (prev !== slot && panes[prev]) panes[prev].lastPrincipalAt = Date.now();
+  if (panes[slot]) panes[slot].lastActivityAt = Date.now();
+  if (prev !== slot && panes[prev]) panes[prev].lastActivityAt = Date.now();
   saveState();
   if (state.autoEco !== 'off' && state.slots[slot].eco) setEco(slot, false);
-  if (state.autoEco === 'others') {
-    SLOTS.forEach(s2 => { if (s2 !== slot && !state.slots[s2].eco) setEco(s2, true); });
-  }
+  if (state.autoEco === 'others') ecoOthers();
   applyLayout();
 }
 
@@ -677,9 +788,7 @@ function applyLayout() {
     panes[s].el.classList.toggle('principal', s === state.principal);
     refreshStatusUI(s);
   });
-  document.querySelectorAll('.lay').forEach(b => {
-    b.classList.toggle('active', b.dataset.lay === state.layout);
-  });
+  refreshLayoutButtons();
 }
 
 /* Botões de arranjo com miniatura do formato */
@@ -708,6 +817,15 @@ function buildLayoutButtons() {
     });
     box.appendChild(b);
   }
+}
+
+/* Desabilita arranjos que precisam de mais contas do que existem */
+function refreshLayoutButtons() {
+  document.querySelectorAll('.lay').forEach(b => {
+    const lay = LAYOUTS[b.dataset.lay];
+    b.disabled = lay.rects.length > state.slotCount;
+    b.classList.toggle('active', b.dataset.lay === state.layout);
+  });
 }
 
 /* ============================================================
@@ -766,19 +884,17 @@ function wireConfig() {
     state.autoEco = cfgAutoEco.value;
     saveState();
     cfgAutoEcoMin.disabled = state.autoEco !== 'idle';
-    if (state.autoEco === 'others') {
-      SLOTS.forEach(s => { if (s !== state.principal && !state.slots[s].eco) setEco(s, true); });
-    }
+    if (state.autoEco === 'others') ecoOthers();
   });
   cfgAutoEcoMin.addEventListener('change', () => {
-    state.autoEcoMinutes = Math.max(1, Math.min(120, Number(cfgAutoEcoMin.value) || 5));
+    state.autoEcoMinutes = clampNum(cfgAutoEcoMin.value, 1, 120, 5);
     cfgAutoEcoMin.value = state.autoEcoMinutes;
     saveState();
   });
   cfgAutoReload.addEventListener('change', () => { state.autoReload = cfgAutoReload.checked; saveState(); });
   cfgNotifSta.addEventListener('change', () => { state.notifStamina = cfgNotifSta.checked; saveState(); });
   cfgNotifStaMin.addEventListener('change', () => {
-    state.notifStaminaMin = Math.max(5, Math.min(900, Number(cfgNotifStaMin.value) || 60));
+    state.notifStaminaMin = clampNum(cfgNotifStaMin.value, 5, 900, 60);
     cfgNotifStaMin.value = state.notifStaminaMin;
     saveState();
   });
@@ -810,18 +926,16 @@ function wireConfig() {
     const pr = state.profiles[Number(cfgProfiles.value)];
     if (!pr) return;
     setSlotCount(pr.slotCount || 4);
-    if (LAYOUTS[pr.layout]) state.layout = pr.layout;
-    state.ecoFps = Math.max(5, Math.min(30, Number(pr.ecoFps) || 15));
-    state.zoom = Math.max(0.3, Math.min(2, Number(pr.zoom) || 1));
+    if (LAYOUTS[pr.layout] && LAYOUTS[pr.layout].rects.length <= state.slotCount) state.layout = pr.layout;
     if (SLOTS.includes(pr.principal)) state.principal = pr.principal;
     saveState();
-    SLOTS.forEach(s => {
-      setEco(s, !!(pr.eco && pr.eco[s]));
-      withGuest(s, wv => wv.setZoomFactor(state.zoom));
-    });
-    if (pr.gameUrl && pr.gameUrl !== state.gameUrl) { setGame(pr.gameUrl); fillGameSelect(); }
-    document.getElementById('ecoFps').value = state.ecoFps;
-    document.getElementById('ecoFpsLabel').textContent = state.ecoFps + ' FPS';
+    SLOTS.forEach(s => setEco(s, !!(pr.eco && pr.eco[s])));
+    setZoom(pr.zoom);
+    setEcoFps(pr.ecoFps);
+    try {
+      const u = new URL(pr.gameUrl).href;
+      if (u !== state.gameUrl) { setGame(u); fillGameSelect(); }
+    } catch (e) {}
     applyLayout();
     syncUI();
   });
@@ -842,24 +956,16 @@ function wireConfig() {
    ============================================================ */
 function wireTopbar() {
   const ecoFps = document.getElementById('ecoFps');
-  const ecoFpsLabel = document.getElementById('ecoFpsLabel');
   ecoFps.value = state.ecoFps;
-  ecoFpsLabel.textContent = state.ecoFps + ' FPS';
-  ecoFps.addEventListener('input', () => {
-    state.ecoFps = +ecoFps.value;
-    saveState();
-    ecoFpsLabel.textContent = state.ecoFps + ' FPS';
-    SLOTS.forEach(s => {
-      panes[s].ecoFpsEl.textContent = state.ecoFps;
-      if (state.slots[s].eco) applyEcoToGuest(s);
-    });
-  });
+  document.getElementById('ecoFpsLabel').textContent = state.ecoFps + ' FPS';
+  ecoFps.addEventListener('input', () => setEcoFps(ecoFps.value));
 
   document.getElementById('btnHome').addEventListener('click', () => {
-    withGuest(state.principal, wv => wv.loadURL(state.gameUrl));
+    navigateTo(state.principal, state.gameUrl);
   });
   document.getElementById('btnReload').addEventListener('click', () => {
-    withGuest(state.principal, wv => wv.reload());
+    const p = panes[state.principal];
+    if (p) { try { p.wv.reload(); } catch (e) {} }
   });
   document.getElementById('btnZoomOut').addEventListener('click', () => setZoom(state.zoom - 0.1));
   document.getElementById('btnZoomIn').addEventListener('click', () => setZoom(state.zoom + 0.1));
@@ -872,7 +978,7 @@ function wireTopbar() {
 }
 
 function setZoom(z) {
-  state.zoom = Math.round(Math.max(0.3, Math.min(2, z)) * 10) / 10;
+  state.zoom = Math.round(clampNum(z, 0.3, 2, 1) * 10) / 10;
   saveState();
   SLOTS.forEach(s => withGuest(s, wv => wv.setZoomFactor(state.zoom)));
 }
@@ -885,8 +991,6 @@ wireGameControls();
 wireConfig();
 buildLayoutButtons();
 rebuildSlots();
-if (state.autoEco === 'others') {
-  SLOTS.forEach(s => { if (s !== state.principal && !state.slots[s].eco) setEco(s, true); });
-}
+if (state.autoEco === 'others') ecoOthers();
 applyLayout();
 setInterval(tick, TICK_MS);
