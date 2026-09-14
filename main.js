@@ -8,8 +8,23 @@ const { app, BrowserWindow, ipcMain, session, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// User agent de Chrome "normal" para os sites dos jogos não tratarem como navegador embutido
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+// User agent: derivado da UA REAL do Chromium do Electron, removendo os tokens
+// "Electron/…" e o nome do app. O resultado é uma UA de Chrome legítima e, o
+// mais importante, CONSISTENTE com os client hints (Sec-CH-UA / versão real da
+// engine) que o navegador envia. Cloudflare Turnstile e outras verificações de
+// bot cruzam a UA com esses hints — uma UA forjada com versão de Chrome
+// diferente da engine real faz o desafio falhar/travar (era o Chrome/131 fixo).
+function buildUserAgent() {
+  const raw = app.userAgentFallback || '';
+  const ua = raw
+    // remove tokens "palavra/versao" que não sejam padrão de navegador
+    // (Electron/…, MultiAccountIdle/…), preservando Mozilla/AppleWebKit/Chrome/Safari
+    .replace(/\s+(?!Mozilla\/|AppleWebKit\/|Chrome\/|Safari\/)[\w.-]+\/\S+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return ua || raw;
+}
+let UA = ''; // definido em app.whenReady()
 const MAX_SLOTS = 6;
 const PARTITION_RE = /^persist:conta[1-6]$/;
 const ICON_PATH = path.join(__dirname, 'build', 'icon.ico');
@@ -53,6 +68,9 @@ function createWindow() {
 app.whenReady().then(() => {
   // Necessário para as notificações do Windows aparecerem com o nome do app
   app.setAppUserModelId('br.com.chang.multiaccountidle');
+
+  UA = buildUserAgent();
+  log('UA:', UA);
 
   // Cada conta tem sua própria partição persistente (cookies/login separados)
   for (let i = 1; i <= MAX_SLOTS; i++) {

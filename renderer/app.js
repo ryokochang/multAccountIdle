@@ -6,7 +6,8 @@
 const DEFAULT_GAMES = [
   { name: 'Huntera', url: 'https://huntera.com.br/game' }
 ];
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+// A User-Agent é definida no processo principal (main.js), na sessão de cada
+// partição — o webview não precisa declará-la aqui (fonte única, sem divergir).
 const MAX_SLOTS = 6;
 const TICK_MS = 5000;
 
@@ -204,7 +205,6 @@ function createPane(slot) {
     </div>
     <div class="pbody">
       <webview partition="persist:conta${slot}" allowpopups
-        useragent="${UA}"
         webpreferences="backgroundThrottling=no,spellcheck=no"></webview>
       <div class="eco-overlay">
         <div class="eco-emblem">🌿</div>
